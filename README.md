@@ -1,11 +1,11 @@
 # books
 Ebook reader for .txt files, so you can read books from archive.org in CLI
 
-##Installation
+## Installation
 
 run ./configure to create the bookmark folder in ~/.books/bookmarks
 
-##Instructions
+## Instructions
 
 run ./books [Filename] to open a book to page one
 
