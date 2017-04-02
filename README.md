@@ -12,25 +12,25 @@ run ./books [Filename] to open a book to page one
 books accepts the following optional parameters:
 
 * -p [###]
-	Go to a specific page
+	* Go to a specific page
 * -w [###]
-	Set the reader to a specific width (in characters)
+	* Set the reader to a specific width (in characters)
 * -h [###]
-	Set the reader to a specific height (in characters)
+	* Set the reader to a specific height (in characters)
 * -b
-	Open the reader to a bookmark (if one exists)
+	* Open the reader to a bookmark (if one exists)
 
 In the reader, use the following commands and keys:
 
 * n 
-	Next page
+	* Next page
 * b	
-	Previous page
+	* Previous page
 * :g [###]
-	Go to a specific page
+	* Go to a specific page
 * :s
-	Save a bookmark at the current location
+	* Save a bookmark at the current location
 * :q
-	Quit
+	* Quit
 * /[...]
-	Search for a specific string in the book, starting from the current location
+	* Search for a specific string in the book, starting from the current location
