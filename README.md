@@ -1,6 +1,9 @@
 # books
 Ebook reader for .txt files, so you can read books from archive.org in CLI
 
+## Dependencies
+Requires libncursesw to run
+
 ## Installation
 
 run ./configure to create the bookmark folder in ~/.books/bookmarks
