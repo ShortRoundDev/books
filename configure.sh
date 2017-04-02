@@ -1,2 +1,4 @@
-mkdir ~/.books
-mkdir ~/.books/bookmarks
+#!/bin/sh -e
+
+mkdir -p "$HOME/.books"
+mkdir -p "$HOME/.books/bookmarks"
