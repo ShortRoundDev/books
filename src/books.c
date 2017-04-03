@@ -48,6 +48,7 @@ int WIDTH = RD_WIDTH;
 int HEIGHT = RD_HEIGHT;
 	/*currentPage is all the characters which can were read from the file and fit inside the reader*/
 char *currentPage;
+int fileOffset = -1;
 
 	/*getOption is used to get the value associated with some command line argument*/
 char *getOption(int argc, char *argv[], char *desired_arg);
@@ -73,7 +74,7 @@ int main(int argc, char **argv){
 	}
 		/*if -b is present, then the reader will look for a bookmark*/
 	if((value = getOption(argc, argv, "-b")) != NULL){
-		currentPageNum = readBookmark(basename(argv[1]));
+		fileOffset = readBookmark(basename(argv[1]));
 	}
 
 		/*the max size of currentpage is the area of the reader*/
@@ -107,13 +108,24 @@ int main(int argc, char **argv){
 		init_pair(1, COLOR_BLACK, COLOR_BLUE);
 	}
 		/*turn to page if -p is set*/
-	if(currentPageNum > 0){
+	if(fileOffset > -1){
 		int toPage = currentPageNum;
+		int toOffset = fileOffset;
+		currentPageNum = 0;
+		fileOffset = -1;
+		while(1){
+			turnPage(book);
+			toPage = currentPageNum;
+			if(fileOffset >= toOffset){
+				break;
+			}
+		}
+		rewind(book);
 		currentPageNum = 0;
 		for(int i = 0; i < toPage; i++){
-			if(turnPage(book) == 0)
-				break;
+			turnPage(book);
 		}
+		
 	}else{
 			/*if -p is not set, then just go to page 1*/
 		turnPage(book);
@@ -271,7 +283,7 @@ void saveBookmark(char *bookname){
 		mvprintw(scr_height -1, 2, "ERROR: Couldn't save bookmark");
 		return;
 	}
-	fprintf(bookmark, "%d", currentPageNum);
+	fprintf(bookmark, "%d", fileOffset);
 	fclose(bookmark);
 	free(filePathSave);
 }
@@ -381,6 +393,7 @@ void drawAll(char *highlighted, int offset){
 
 int turnPage(FILE *book){
 		/*increment the apge*/
+	fileOffset = ftell(book) + 1;
 	currentPageNum++;
 	int currentChar = 0;
 	int currentLine = 0;
