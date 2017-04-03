@@ -63,14 +63,22 @@ int main(int argc, char **argv){
 	}
 
 		/*get options and deal with them*/
+	char *configPath = malloc(strlen(getenv("HOME")) + strlen("/.books/config/config.cfg"));
+	strcat(configPath, getenv("HOME"));
+	strcat(configPath, "/.books/config/config.cfg");
+	FILE *cfg = fopen(configPath, "r");
 	char *value;
 		/*-w defines the width of the reader*/
 	if((value = getOption(argc, argv, "-w")) != NULL){
 		WIDTH = atoi(value);
+	}else if(cfg != NULL){
+		fscanf(cfg, "width=%d", &WIDTH);
 	}
 		/*-h defines the height of the reader*/
 	if((value = getOption(argc, argv, "-h")) != NULL){
 		HEIGHT = atoi(value);
+	}else if(cfg != NULL){
+		fscanf(cfg, "height=%d", &HEIGHT);
 	}
 		/*if -b is present, then the reader will look for a bookmark*/
 	if((value = getOption(argc, argv, "-b")) != NULL){
