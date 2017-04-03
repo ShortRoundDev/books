@@ -6,6 +6,7 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include <ctype.h>
+#include <libgen.h>
 
 #define DEBUG 1
 
@@ -72,7 +73,7 @@ int main(int argc, char **argv){
 	}
 		/*if -b is present, then the reader will look for a bookmark*/
 	if((value = getOption(argc, argv, "-b")) != NULL){
-		currentPageNum = readBookmark(argv[1]);
+		currentPageNum = readBookmark(basename(argv[1]));
 	}
 
 		/*the max size of currentpage is the area of the reader*/
@@ -170,7 +171,7 @@ int main(int argc, char **argv){
 				break;
 			}else if(options[0] == 's'){
 					/*s for saving a bookmark*/
-				saveBookmark(argv[1]);
+				saveBookmark(basename(argv[1]));
 				drawAll(NULL, -1);
 				refresh();
 				free(options);
@@ -260,29 +261,36 @@ void clearBackground(){
 
 void saveBookmark(char *bookname){
 		/*save page # to ~/.books/bookmarks*/
-	char *filePath = getenv("HOME");
-	strcat(filePath, "/.books/bookmarks/");
-	FILE *bookmark = fopen(strcat(strcat(filePath, bookname), ".bookmark"), "w");
+	char *filePathSave = malloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(bookname) + strlen(".bookmark"));
+	strcat(filePathSave, getenv("HOME"));
+	strcat(filePathSave, "/.books/bookmarks/");
+	strcat(filePathSave, bookname);
+	strcat(filePathSave, ".bookmark");
+	FILE *bookmark = fopen(filePathSave, "w");
 	if(bookmark == NULL){
 		mvprintw(scr_height -1, 2, "ERROR: Couldn't save bookmark");
 		return;
 	}
 	fprintf(bookmark, "%d", currentPageNum);
 	fclose(bookmark);
-	
+	free(filePathSave);
 }
 
 int readBookmark(char *bookname){
 		/*get Page # from ~/.books/bookmarks*/
-	char *filePath = getenv("HOME");
-	strcat(filePath, "/.books/bookmarks/");
-	FILE *bookmark = fopen(strcat(strcat(filePath, bookname), ".bookmark"), "r");
+	char *filePathSave = malloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(bookname) + strlen(".bookmark"));
+	strcat(filePathSave, getenv("HOME"));
+	strcat(filePathSave, "/.books/bookmarks/");
+	strcat(filePathSave, bookname);
+	strcat(filePathSave, ".bookmark");
+	FILE *bookmark = fopen(filePathSave, "r");
 	if(bookmark == NULL){
 		mvprintw(scr_height -1, 2, "ERROR: Couldn't open bookmark");
 		return 1;
 	}
 	int pageNum = 1;
 	fscanf(bookmark, "%d", &pageNum);
+	free(filePathSave);
 	return pageNum;
 }
 
