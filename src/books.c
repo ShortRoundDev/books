@@ -6,6 +6,7 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 #include <libgen.h>
 
 #define DEBUG 1
@@ -35,7 +36,7 @@ int find(char *phrase, FILE *book, int original);
 	/*saveBookmark will save a bookmark in ~/.books/bookmarks*/
 void saveBookmark(char *bookName);
 	/*readBookmark will open the book to the page defined in ~/.books/bookmarks*/
-int readBookmark(char *bookName);
+int readBookmark(char *bookName, int markNum);
 
 	/*scr_width and scr_height are the dimensions of the terminal*/
 int scr_width = -1;
@@ -50,10 +51,17 @@ int HEIGHT = RD_HEIGHT;
 char *currentPage;
 int fileOffset = -1;
 
+int bookmarksOpen = 0;
+int bookmarkSelect = 0;
+
 	/*getOption is used to get the value associated with some command line argument*/
 char *getOption(int argc, char *argv[], char *desired_arg);
 	/*returns the number of digits in some integer. Helper*/
 unsigned int GetNumberOfDigits(unsigned int i);
+char *getFileContents(FILE *file);
+
+void showBookMarks(FILE *bookmarkFile, int index);
+
 
 int main(int argc, char **argv){
 		/*Initialization; check for file*/
@@ -82,7 +90,7 @@ int main(int argc, char **argv){
 	}
 		/*if -b is present, then the reader will look for a bookmark*/
 	if((value = getOption(argc, argv, "-b")) != NULL){
-		fileOffset = readBookmark(basename(argv[1]));
+		fileOffset = readBookmark(basename(argv[1]), -1);
 	}
 
 		/*the max size of currentpage is the area of the reader*/
@@ -147,21 +155,81 @@ int main(int argc, char **argv){
 		char command = getch();
 			/*n for "next page"*/
 		if(command == 'n'){
-			turnPage(book);
-			drawAll(NULL, -1);
+			if(!bookmarksOpen){
+				turnPage(book);
+				drawAll(NULL, -1);
+			}else{
+				bookmarkSelect++;
+				drawAll(NULL, -1);
+				
+				char *bookmarkPath = calloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(basename(argv[1])) + strlen(".bookmark"), 1);
+				strcat(bookmarkPath, getenv("HOME"));
+				strcat(bookmarkPath, "/.books/bookmarks/");
+				strcat(bookmarkPath, basename(argv[1]));
+				strcat(bookmarkPath, ".bookmark");
+				FILE *bookmarkFile = fopen(bookmarkPath, "r");
+				if(bookmarkFile != NULL){
+					showBookMarks(bookmarkFile, bookmarkSelect);
+					fclose(bookmarkFile);
+					mvprintw(scr_height - 1, scr_width -1, " ");
+				}
+			}
 			refresh();
 		}else if(command == 'b'){
 				/*b for "back"*/
-			rewind(book);
-			int tmpPageNum = currentPageNum - 1;
-			currentPageNum = 0;
-			for(int i = 0; i < tmpPageNum; i++){
-				if(turnPage(book) == 0)
-					break;
-			}
+			if(!bookmarksOpen){
+				rewind(book);
+				int tmpPageNum = currentPageNum - 1;
+				currentPageNum = 0;
+				for(int i = 0; i < tmpPageNum; i++){
+					if(turnPage(book) == 0)
+						break;
+				}
 
-			drawAll(NULL, -1);
+				drawAll(NULL, -1);
+			}else{
+
+				bookmarkSelect--;
+				drawAll(NULL, -1);
+				
+				char *bookmarkPath = calloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(basename(argv[1])) + strlen(".bookmark"), 1);
+				strcat(bookmarkPath, getenv("HOME"));
+				strcat(bookmarkPath, "/.books/bookmarks/");
+				strcat(bookmarkPath, basename(argv[1]));
+				strcat(bookmarkPath, ".bookmark");
+				FILE *bookmarkFile = fopen(bookmarkPath, "r");
+				if(bookmarkFile != NULL){
+					showBookMarks(bookmarkFile, bookmarkSelect);
+					fclose(bookmarkFile);
+					mvprintw(scr_height - 1, scr_width -1, " ");
+				}
+			}
 			refresh();
+		}else if(command == 'g'){
+			if(bookmarksOpen){
+				fileOffset = readBookmark(basename(argv[1]), bookmarkSelect);
+				
+				int toPage = 0;
+				rewind(book);
+				int toOffset = fileOffset;
+				currentPageNum = 0;
+				fileOffset = -1;
+				while(1){
+					turnPage(book);
+					toPage = currentPageNum;
+					if(fileOffset >= toOffset){
+						break;
+					}
+				}
+				rewind(book);
+				currentPageNum = 0;
+				for(int i = 0; i < toPage; i++){
+					turnPage(book);
+				}
+				drawAll(NULL, -1);
+				refresh();	
+				bookmarksOpen = 0;
+			}
 		}else if(command == ':'){
 				/*a semicolon or forward slash is used to execute more
 				 *complicated commands, like searching or navigation
@@ -184,6 +252,7 @@ int main(int argc, char **argv){
 				drawAll(NULL, -1);
 				refresh();
 				options--;
+				bookmarksOpen = 0;
 				free(options);
 			}else if(options[0] == 'q'){
 					/*q for quit*/
@@ -192,16 +261,46 @@ int main(int argc, char **argv){
 			}else if(options[0] == 's'){
 					/*s for saving a bookmark*/
 				saveBookmark(basename(argv[1]));
+				bookmarksOpen = 0;
 				drawAll(NULL, -1);
 				refresh();
 				free(options);
+			}else if(options[0] == 'b'){
+
+				if(!bookmarksOpen){
+	drawAll(NULL, -1);
+					bookmarkSelect = 0;
+					char *bookmarkPath = calloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(basename(argv[1])) + strlen(".bookmark"), 1);
+					strcat(bookmarkPath, getenv("HOME"));
+					strcat(bookmarkPath, "/.books/bookmarks/");
+					strcat(bookmarkPath, basename(argv[1]));
+					strcat(bookmarkPath, ".bookmark");
+					FILE *bookmarkFile = fopen(bookmarkPath, "r");
+					if(bookmarkFile != NULL){
+						showBookMarks(bookmarkFile, bookmarkSelect);
+						fclose(bookmarkFile);
+						bookmarksOpen = 1;
+						mvprintw(scr_height - 1, scr_width -1, " ");
+					}else{
+						mvprintw(2, scr_width - 32, "*============================*");
+						mvprintw(3, scr_width - 32, "| Error: no bookmarks found  |");
+						mvprintw(4, scr_width - 32, "*============================*");
+						mvprintw(scr_height-1, scr_width-1, " ");
+					}
+				}else{
+					drawAll(NULL, -1);
+					bookmarksOpen = 0;
+				}
+				refresh();
 			}else{
 					/*else, just go back to what we were doing*/
+				bookmarksOpen = 0;
 				drawAll(NULL, -1);
 				refresh();
 				free(options);
 			}
 		}else if(command == '/'){
+			bookmarksOpen = 0;
 				/*forward slash is used for searching*/
 			char *options = malloc(80);
 			mvprintw(scr_height-1, 2, "/");
@@ -281,24 +380,39 @@ void clearBackground(){
 
 void saveBookmark(char *bookname){
 		/*save page # to ~/.books/bookmarks*/
-	char *filePathSave = malloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(bookname) + strlen(".bookmark"));
+	char *filePathSave = calloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(bookname) + strlen(".bookmark"), 1);
 	strcat(filePathSave, getenv("HOME"));
 	strcat(filePathSave, "/.books/bookmarks/");
 	strcat(filePathSave, bookname);
 	strcat(filePathSave, ".bookmark");
-	FILE *bookmark = fopen(filePathSave, "w");
+
+		/*Preserve history*/
+	FILE *bookmark;
+	bookmark = fopen(filePathSave, "r");
+	char *oldBookmarks = "";
+
+	if(bookmark !=NULL){
+		oldBookmarks = getFileContents(bookmark);
+		fclose(bookmark);
+	}
+	
+		/*Delete contents*/
+	bookmark = fopen(filePathSave, "w");
+	
 	if(bookmark == NULL){
 		mvprintw(scr_height -1, 2, "ERROR: Couldn't save bookmark");
+		exit(1);
 		return;
 	}
-	fprintf(bookmark, "%d", fileOffset);
+	
+	fprintf(bookmark, "time=%d\nlocation=%d\n%s", (int)time(NULL), fileOffset, oldBookmarks);
 	fclose(bookmark);
 	free(filePathSave);
 }
 
-int readBookmark(char *bookname){
+int readBookmark(char *bookname, int markNum){
 		/*get Page # from ~/.books/bookmarks*/
-	char *filePathSave = malloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(bookname) + strlen(".bookmark"));
+	char *filePathSave = calloc(strlen(getenv("HOME")) + strlen("/.books/bookmarks/") + strlen(bookname) + strlen(".bookmark"), 1);
 	strcat(filePathSave, getenv("HOME"));
 	strcat(filePathSave, "/.books/bookmarks/");
 	strcat(filePathSave, bookname);
@@ -308,10 +422,19 @@ int readBookmark(char *bookname){
 		mvprintw(scr_height -1, 2, "ERROR: Couldn't open bookmark");
 		return 1;
 	}
-	int pageNum = 1;
-	fscanf(bookmark, "%d", &pageNum);
+	int location = -1;
+	int time = -1;
+	if(markNum == -1){
+		fscanf(bookmark, "time=%d\n", &time);
+		fscanf(bookmark, "location=%d\n", &location);
+	}else{
+		for(int i = 0; i <= markNum; i++){
+			fscanf(bookmark, "time=%d\n", &time);
+			fscanf(bookmark, "location=%d\n", &location);
+		}
+	}
 	free(filePathSave);
-	return pageNum;
+	return location;
 }
 
 void drawBackground(){
@@ -444,4 +567,45 @@ char *getOption(int argc, char **argv, char *desired_arg){
 
 unsigned int GetNumberOfDigits (unsigned int i){
     return i > 0 ? (int) log10 ((double) i) + 1 : 1;
+}
+
+char *getFileContents(FILE *file){
+	rewind(file);
+	char c;
+	fseek(file, 0, SEEK_END);
+	int size = ftell(file);
+	char *contents = calloc(size + 1, 1);
+	int i = 0;
+	rewind(file);
+	while((c = fgetc(file)) != EOF){
+		contents[i++] = c;
+	}
+	rewind(file);
+	return contents;
+}
+
+void showBookMarks(FILE *bookmarkFile, int index){
+	rewind(bookmarkFile);
+	int time = 0;
+	int location = 0;
+	int i = 0;
+	mvprintw(i++, scr_width - 30, "*============================*");
+	mvprintw(i++, scr_width - 30, "|           Bookmarks         ");
+	mvprintw(i++, scr_width - 30, "*============================*");
+	while(fscanf(bookmarkFile, "time=%d\nlocation=%d\n", &time, &location) != EOF && i != 10){
+		if(index == i - 3){
+			attron(COLOR_PAIR(1));
+		}
+		mvprintw(i, scr_width - 30, "| ");
+		mvprintw(i, scr_width - 28, "@ %d", location);
+		for(int j = 0; j < 26 - GetNumberOfDigits(location); j++){
+			mvprintw(i, scr_width - (26 - GetNumberOfDigits(location)) + j, " ");
+		}
+		i++;
+		attroff(COLOR_PAIR(1));
+	}
+	mvprintw(i++, scr_width - 30, "*============================*");
+
+	mvprintw(scr_height - 1, scr_width -1, " ");
+	refresh();
 }
